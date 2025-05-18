@@ -1,5 +1,5 @@
-.idea
-!bin/text.conf
 build
 example
 lib
+.vscode 
+.run
