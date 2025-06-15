@@ -11,14 +11,11 @@ void MprpcConfig::LoadConfigFile(const char *config_file) {
   while (!feof(pf)) {
     char buf[512] = {0};
     fgets(buf, 512, pf);
-
     // 去掉字符串前面多余的空格
     std::string read_buf(buf);
     Trim(read_buf);
-
     // 判断 # 的注释
     if (read_buf[0] == '#' || read_buf.empty()) continue;
-
     // 解析配置项
     int idx = read_buf.find('=');
     if (idx == -1) continue;  // 配置项不合法
