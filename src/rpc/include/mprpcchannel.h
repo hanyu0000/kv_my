@@ -1,0 +1,44 @@
+#ifndef MPRPCCHANNEL_H
+#define MPRPCCHANNEL_H
+
+#include <google/protobuf/service.h>
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/message.h>
+#include <string>
+#include <iostream>
+#include <functional>
+#include <algorithm>
+#include <vector>
+#include <map>
+#include <algorithm> // 包含 std::generate_n() 和 std::generate() 函数的头文件
+#include <random>    // 包含 std::uniform_int_distribution 类型的头文件
+#include <unordered_map>
+
+using namespace std;
+
+/*
+真正负责发送和接受的前后处理工作
+如消息的组织方式，向哪个节点发送等等
+定义了一个自定义的 RPC 通信类 MprpcChannel，它继承自 Google Protocol Buffers 提供的 google::protobuf::RpcChannel 接口，并实现了其中的核心方法 CallMethod。
+*/
+class MprpcChannel : public google::protobuf::RpcChannel
+{
+public:
+    // 所有通过stub代理对象调用的rpc方法，都走到这里了，统一做rpc方法调用的数据数据序列化和网络发送 那一步
+    void CallMethod(const google::protobuf::MethodDescriptor *method,
+                google::protobuf::RpcController *controller,
+                const google::protobuf::Message *request,
+                google::protobuf::Message *response,
+                google::protobuf::Closure *done) override;
+
+    MprpcChannel(string ip,short port,bool connectNow);//构造函数
+
+private:
+    int m_clientFd;
+    const std::string m_ip;//保存ip和端口，如果断了可以尝试重连
+    const uint16_t m_port;
+
+    bool newConnect(const char *ip,uint16_t port,string * errMsg);
+};
+
+#endif // MPRPCCHANNEL_H
