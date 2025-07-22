@@ -111,7 +111,7 @@ void MprpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     }
 
     // 反序列化rpc调用的响应数据
-    // std::string response_str(recv_buf, 0, recv_size); 
+    // std::string response_str(recv_buf, 0, recv_size);
     // if (!response->ParseFromString(response_str))
     if (!response->ParseFromArray(recv_buf, recv_size))
     {
@@ -122,5 +122,7 @@ void MprpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     }
 }
 
-bool MprpcChannel::newConnect(const char *ip, uint16_t port, string *errMsg) {};
+bool MprpcChannel::newConnect(const char *ip, uint16_t port, string *errMsg) {
+    
+};
 MprpcChannel::MprpcChannel(string ip, short port, bool connectNow) : m_ip(ip), m_port(port), m_clientFd(-1) {};

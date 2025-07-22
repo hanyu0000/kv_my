@@ -1,4 +1,4 @@
 .idea
-bin
+!bin/text.conf
 cmake-build-debug
 lib
