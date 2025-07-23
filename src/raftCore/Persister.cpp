@@ -1,5 +1,6 @@
 #include "Persister.h"
 #include "util.h"
+
 void Persister::Save(const std::string raftstate, const std::string snapshot) {
   std::lock_guard<std::mutex> lg(mtx);
   // 将raftstate和snapshot写入本地文件

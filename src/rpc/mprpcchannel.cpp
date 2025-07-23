@@ -9,6 +9,8 @@
 #include "mprpccontroller.h"
 #include "util.h"
 
+// 自定义 RPC 框架的核心客户端通信逻辑，模仿了 Google 的 gRPC 调用方式，并与 protobuf 框架整合。
+
 /*
 header_size + service_name method_name args_size + args
 */
