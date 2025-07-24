@@ -19,3 +19,30 @@
 │   ├── rpc  rpc库相关代码
 │   └── skipList 跳表（上层状态机）相关代码
 └── test  测试代码存放地，作用不大，一般是对一些不确定的特性进行测试
+
+### void KvServer::Get(const raftKVRpcProctoc::GetArgs *args, raftKVRpcProctoc::GetReply *reply) 
+
+Client → RPC → Get()
+           ↓
+      构造 Op
+           ↓
+     Raft::Start(Op)
+           ↓
+   ┌─────────────┬──────────────────────────────┐
+   │ isLeader == false                          │
+   │ → 立即返回 ErrWrongLeader                  │
+   └─────────────┴──────────────────────────────┘
+           ↓
+     等待 Raft commit apply（超时控制）
+           ↓
+   ┌──────────────┬─────────────────────────────┐
+   │ 超时          │ Raft 成功 commit           │
+   │              ↓                             ↓
+   │ 是重复请求？  是自己请求？              是自己请求？
+   │    ↓          ↓                             ↓
+   │   Get并返回    Get并返回                    Get并返回
+   │    ↓          ↓                             ↓
+   │   OK/NoKey    OK/NoKey                      OK/NoKey
+   │    ↓          ↓                             ↓
+   │ 否 → 返回 ErrWrongLeader                    否 → 返回 ErrWrongLeader
+   └──────────────┴─────────────────────────────┘

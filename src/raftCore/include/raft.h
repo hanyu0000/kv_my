@@ -17,7 +17,7 @@
 #include "boost/serialization/serialization.hpp"
 #include "config.h"
 #include "monsoon.h"
-#include "raftRpcUtil.h"
+#include "raftRpc.h"
 #include "util.h"
 /// @brief //////////// 网络状态表示  todo：可以在rpc中删除该字段，实际生产中是用不到的.
 constexpr int Disconnected =
