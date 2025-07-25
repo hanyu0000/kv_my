@@ -1,6 +1,6 @@
 #include "mprpcchannel.h"
 #include <string>
-// #include "rpcheader.pb.h"
+#include "rpcheader.pb.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
