@@ -1,12 +1,12 @@
 #include "mprpcchannel.h"
-#include <string>
-#include "rpcheader.pb.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <cerrno>
+#include <string>
 #include "mprpccontroller.h"
+#include "rpcheader.pb.h"
 #include "util.h"
 
 // 自定义 RPC 框架的核心客户端通信逻辑，模仿了 Google 的 gRPC 调用方式，并与 protobuf 框架整合。
@@ -41,7 +41,7 @@ void MprpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
   uint32_t args_size = 0;
   std::string args_str;
   /*通过 method 获取当前调用的服务名和方法名。使用 protobuf 的 SerializeToString
-   * 将请求参数序列化为二进制字符串。如果序列化失败，设置失败状态返回。*/
+   *将请求参数序列化为二进制字符串。如果序列化失败，设置失败状态返回。*/
   if (request->SerializeToString(&args_str)) {
     args_size = args_str.size();
   } else {
@@ -97,8 +97,6 @@ void MprpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
   }
 
   // 反序列化rpc调用的响应数据
-  // std::string response_str(recv_buf, 0, recv_size);
-  // if (!response->ParseFromString(response_str))
   if (!response->ParseFromArray(recv_buf, recv_size)) {
     char errtxt[1050] = {0};
     sprintf(errtxt, "parse error! response_str:%s", recv_buf);
@@ -111,7 +109,6 @@ bool MprpcChannel::newConnect(const char *ip, uint16_t port, string *errMsg) {
   int clientfd = socket(AF_INET, SOCK_STREAM, 0);
   if (-1 == clientfd) {
     char errtxt[512] = {0};
-    sprintf(errtxt, "create socket error! errno:%d", errno);
     m_clientFd = -1;
     *errMsg = errtxt;
     return false;
@@ -125,7 +122,6 @@ bool MprpcChannel::newConnect(const char *ip, uint16_t port, string *errMsg) {
   if (-1 == connect(clientfd, (struct sockaddr *)&server_addr, sizeof(server_addr))) {
     close(clientfd);
     char errtxt[512] = {0};
-    sprintf(errtxt, "connect fail! errno:%d", errno);
     m_clientFd = -1;
     *errMsg = errtxt;
     return false;
@@ -138,10 +134,6 @@ MprpcChannel::MprpcChannel(string ip, short port, bool connectNow) : m_ip(ip), m
   // 使用tcp编程，完成rpc方法的远程调用，使用的是短连接，因此每次都要重新连接上去，待改成长连接。
   // 没有连接或者连接已经断开，那么就要重新连接呢,会一直不断地重试
   // 读取配置文件rpcserver的信息
-  // std::string ip = MprpcApplication::GetInstance().GetConfig().Load("rpcserverip");
-  // uint16_t port = atoi(MprpcApplication::GetInstance().GetConfig().Load("rpcserverport").c_str());
-  // rpc调用方想调用service_name的method_name服务，需要查询zk上该服务所在的host信息
-  //  /UserServiceRpc/Login
   if (!connectNow) 
     return;
   // 可以允许延迟连接

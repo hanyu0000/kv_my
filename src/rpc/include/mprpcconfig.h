@@ -1,8 +1,7 @@
-#pragma once//防止头文件被多次包含，重复定义
+#pragma once
 
 #include <unordered_map>
 #include <string>
-
 // rpcserverip   rpcserverport    zookeeperip   zookeeperport
 // 框架读取配置文件类
 class MprpcConfig
