@@ -13,7 +13,7 @@ void KvServer::ExecuteAppendOpOnKVDB(Op op) {
   {
     std::lock_guard<std::mutex> lg(m_mtx);            // 加锁
     m_skipList.insert_set_element(op.Key, op.Value);  // 向跳表中插入/更新键值
-    m_lastRequestID[op.ClientId] = op.RequestId;      // 记录客户端最近请求的 ID
+    m_lastRequestId[op.ClientId] = op.RequestId;      // 记录客户端最近请求的 ID（统一命名）
   }
 
   DprintKVDB();  // 已释放锁，避免死锁
@@ -28,11 +28,11 @@ void KvServer::ExecuteGetOpOnKVDB(Op op, std::string *value, bool *exist) {
   if (m_skipList.search_element(op.Key, *value)) *exist = true;
 
   // 记录该客户端最后一次请求的 RequestId，方便幂等或重复请求检查
-  m_lastRequestID[op.ClientId] = op.RequestId;
+  m_lastRequestId[op.ClientId] = op.RequestId;
 
   m_mtx.unlock();
 
-  if (*exit) {  // 打印调试信息：键存在
+  if (*exist) {  // 打印调试信息：键存在
   } else {      // 打印调试信息：键不存在
   }
 
@@ -44,7 +44,7 @@ void KvServer::ExecutePutOpOnKVDB(Op op) {
   m_mtx.lock();
 
   m_skipList.insert_set_element(op.Key, op.Value);
-  m_lastRequestID[op.ClientId] = op.RequestId;
+  m_lastRequestId[op.ClientId] = op.RequestId;
 
   m_mtx.unlock();
 
@@ -151,7 +151,7 @@ void KvServer::GetCommandFromRaft(ApplyMsg message) {
       ExecutePutOpOnKVDB(op);
     }
     if (op.Operation == "Append") {
-      mjb hnh ExecuteAppendOpOnKVDB(op);
+      ExecuteAppendOpOnKVDB(op);
     }
   }
 
@@ -267,7 +267,7 @@ bool KvServer::SendMessageToWaitChan(const Op &op, int raftIndex) {
       "{%d}, Opreation {%v}, Key :{%v}, Value :{%v}",
       m_me, raftIndex, &op.ClientId, op.RequestId, &op.Operation, &op.Key, &op.Value);
   // 多个线程可能同时访问 waitApplyCh
-  if (waitApplyCh.find(raftIndex) == waitApply.end()) {
+  if (waitApplyCh.find(raftIndex) == waitApplyCh.end()) {
     return false;
   }
   waitApplyCh[raftIndex]->Push(op);

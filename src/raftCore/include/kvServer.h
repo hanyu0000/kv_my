@@ -29,7 +29,6 @@ class KvServer : raftKVRpcProctoc::kvServerRpc {
   // Your definitions here.
   std::string m_serializedKVData;  // todo ： 序列化后的kv数据，理论上可以不用，但是目前没有找到特别好的替代方法
   SkipList<std::string, std::string> m_skipList;
-  std::unordered_map<std::string, std::string> m_kvDB;
 
   std::unordered_map<int, LockQueue<Op> *> waitApplyCh;
   // index(raft) -> chan  //？？？字段含义   waitApplyCh是一个map，键是int，值是Op类型的管道
@@ -46,7 +45,7 @@ class KvServer : raftKVRpcProctoc::kvServerRpc {
 
   void StartKVServer();
 
-  void DprintfKVDB();
+  void DprintKVDB();
 
   void ExecuteAppendOpOnKVDB(Op op);
 

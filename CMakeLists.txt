@@ -7,6 +7,14 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# -------------------------- Build switches (simplify project) --------------------------
+option(KV_BUILD_MINIMAL "Build minimal core only (no examples, fewer libs)" OFF)
+option(KV_BUILD_EXAMPLES "Build example programs" ON)
+if(KV_BUILD_MINIMAL)
+  set(KV_BUILD_EXAMPLES OFF CACHE BOOL "Disable examples in minimal build" FORCE)
+  message(STATUS "[KVRaftCpp] Minimal build is ON: examples disabled, core only.")
+endif()
+
 # 设置项目可执行文件输出的路径
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 # 设置项目库文件输出的路径
@@ -23,6 +31,7 @@ include_directories(${PROJECT_SOURCE_DIR}/src/raftRpcPro/include)
 link_directories(${PROJECT_SOURCE_DIR}/lib)
 
 add_subdirectory(src)
-add_subdirectory(example)
-add_library(skip_list_on_raft STATIC  ${rpc_frame_src} ${rpc_example} ${raftsource} )
-target_link_libraries(skip_list_on_raft muduo_net muduo_base pthread )
+
+if(KV_BUILD_EXAMPLES)
+  add_subdirectory(example)
+endif()
