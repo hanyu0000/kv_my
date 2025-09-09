@@ -1,4 +1,6 @@
 build
 lib
+.clang-tidy
+.clang-format
 .vscode 
 .run
