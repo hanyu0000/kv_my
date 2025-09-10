@@ -1,4 +1,4 @@
-一、术语字典（Glossary）
+一、术语
 • 线性一致（Linearizability）：每个操作在全序时间线上瞬时生效，读总能看到最近一次成功写入的结果。
 • 领导者选举（Leader Election）：通过随机化选举超时与多数投票产生唯一 Leader 的过程。
 • 请求投票（RequestVote）：候选人发起的投票 RPC，携带任期与日志新旧度以获取多数票。
@@ -31,35 +31,82 @@
 
 一、项目整体理解类问题
 1. 项目背景与目标
-Q: 这个项目要解决什么问题？为何选择 Raft 而非其他一致性算法？
-A: 目标是提供强一致性的分布式 KV 存储，保障在网络分区、节点故障、消息乱序等条件下的线性一致（linearizability）读写。选择 Raft 因其相较 Paxos 更易实现与理解，具备清晰的领导者选举、日志复制与安全性原则。
-• 代码落点：`src/raftCore/raft.cpp`、`src/raftCore/kvServer.cpp`、`src/raftRpcPro/`。
-• 引申：说明对客户端一致性承诺（Leader Read + Lease 或 ReadIndex）。
 
-1. 系统架构设计
+Q: 这个项目要解决什么问题？为何选择 Raft 而非其他一致性算法？
+A: 本项目目标是构建一个 `强一致性的分布式 KV 存储系统`，在以下场景下仍能保证 线性一致性（Linearizability）：
+- 网络分区：某些节点无法互相通信时，系统仍需避免脑裂，保证只有合法 Leader 能对外提供写服务。
+- 节点故障：部分副本宕机，系统能通过多数派投票恢复 Leader 并继续服务。
+- 消息乱序/丢失：利用 Raft 的日志复制机制和提交索引（commit index），保证日志条目有序且最终在多数派中落盘，防止状态机出现分歧。
+
+之所以选择 Raft 而不是 Paxos/ZAB/Gossip，主要原因有：
+- 可实现性：
+Paxos 理论上最小，但实现工程化系统复杂（需要 Multi-Paxos，容易陷入繁琐的提议/投票优化）。
+Raft 把一致性分为三个模块：Leader 选举、日志复制、安全性约束，工程化更容易。
+- 可理解性：
+Raft 明确“强 Leader”模型，所有写入都必须通过 Leader → follower 流程，避免 Paxos 那种“多个 Proposer 并行”的复杂性。
+容易在代码中落地，比如直接定义 Leader 线程、心跳检测、日志复制 RPC。
+- 社区/生态：
+Raft 已成为分布式系统课程与开源实现的主流，学习和复用资料丰富。
+对于 KV 存储场景，Raft 的语义足够，ZAB/EPaxos 适合 ZooKeeper 或更复杂的优化，但本项目更需要可维护性。
+
+代码落点：
+src/raftCore/raft.cpp：实现 Raft 核心（Leader 选举、心跳、日志复制、commit index 维护）。
+src/raftCore/kvServer.cpp：基于状态机的 KV 存储逻辑（Raft 提交日志 → 应用到 KV 状态机）。
+src/raftRpcPro/：封装 RPC（AppendEntries、RequestVote、InstallSnapshot 等），保证节点间消息传递。
+
+引申：客户端一致性承诺
+- Leader Read + Lease：Leader 在心跳期内（Lease 有效期）认为自己仍然是合法 Leader，可以直接返回读结果，延迟低，但依赖时钟假设。
+- ReadIndex：通过向多数派确认 commit index（或心跳）来保证读操作不会读到旧 Leader 的数据，安全性更强，但延迟略高。
+因此，本项目在保证写一致性的同时，针对读操作提供 Leader Read + ReadIndex 两种模式，分别权衡 延迟 和 一致性保证。
+
+2. 系统架构设计
 Q: 请画出系统整体架构并说明各组件职责。
-A: 典型链路：客户端 Clerk → Raft 集群（Leader/Follower/Candidate）→ 状态机（KV）→ 持久化层。组件职责：
-• 客户端 Clerk：封装读写 API 与重试。代码：`src/raftClerk/`。
-• Raft 节点：领导者选举、日志复制、提交与应用。代码：`src/raftCore/`。
-• 状态机（KV）：顺序应用已提交日志到存储引擎。代码：`src/raftCore/kvServer.cpp`、`src/skipList/`。
-• RPC 通信：protobuf + 自研 RPC。代码：`src/raftRpcPro/`、`src/rpc/`。
-• 协程与 IO 调度：`src/fiber/`（`fiber.cpp`、`scheduler.cpp`、`iomanager.cpp`）。
-• 验证建议：参考 `example/raftCoreExample/` 启动多节点，观察选举与提交日志。
+A: 系统整体链路如下：
++----------------+        +------------------+        +----------------+
+|   客户端 Clerk  |  --->  |   Raft 集群       |  --->  |  状态机 KV      |
+|  (读/写 API)   |        | Leader/Follower  |        | 顺序应用日志    |
++----------------+        +------------------+        +----------------+
+                             |        ^
+                             v        |
+                        +----------------+
+                        |  持久化层       |
+                        |  日志与快照存储 |
+                        +----------------+
+- 客户端 Clerk
+封装读写 API，并处理重试逻辑、Leader 重定向。
+代码位置：src/raftClerk/
+- Raft 节点
+Leader 选举（RequestVote RPC）
+日志复制（AppendEntries RPC）
+日志提交与应用（commit index 更新、状态机应用）
+代码位置：src/raftCore/
+- 状态机（KV）
+顺序应用已提交日志，实现线性一致性读写
+数据结构：跳表（SkipList）
+代码位置：src/raftCore/kvServer.cpp、src/skipList/
+- RPC 通信
+使用 protobuf + 自研 RPC 框架
+实现节点间消息传递：AppendEntries、RequestVote、InstallSnapshot 等
+代码位置：src/raftRpcPro/、src/rpc/
+- 协程与 IO 调度
+通过协程（Fiber）实现轻量级线程调度，提高并发性能
+管理网络 IO 与任务调度
+代码位置：src/fiber/（fiber.cpp、scheduler.cpp、iomanager.cpp）
 
 二、核心技术栈深入问题
-3. Raft 领导者选举与网络分区
+1. Raft 领导者选举与网络分区
 Q: 选举流程如何实现？网络分区时如何保证安全？
 A: 候选人等待随机化选举超时后发起投票，请求包含 `term、lastLogIndex/Term`；获得多数票即成为 Leader，并开始发送心跳/复制。网络分区时，只有多数派能产生 Leader；少数派无法获得多数票，安全不被破坏。旧 Leader 在少数派恢复后会基于任期与日志匹配被纠正。
 • 代码落点：`src/raftCore/raft.cpp`（状态转换、超时管理、投票逻辑），`src/raftCore/raftRpc.cpp`（RPC 处理）。
 • 引申：崩溃恢复需从持久化层恢复 `currentTerm/votedFor/log`，避免重复投票与任期回退。
 
-4. 协程框架设计
+1. 协程框架设计
 Q: 为什么使用协程？调度器如何工作？
 A: 协程轻量、上下文切换成本低，适合 IO 密集型的 RPC/心跳/复制任务。调度器基于 ucontext 实现切换，`IOManager` 整合 IO 多路复用与定时器，`hook` 将阻塞 IO 包装为协程友好方式。
 • 代码落点：`src/fiber/fiber.cpp`、`src/fiber/scheduler.cpp`、`src/fiber/iomanager.cpp`、`src/fiber/hook.cpp`、`src/fiber/timer.cpp`。
 • 引申：讨论就绪队列结构、是否多线程调度、协程与锁的配合策略。
 
-5. RPC 通信机制与可靠性
+1. RPC 通信机制与可靠性
 Q: 序列化与网络协议如何实现？如何保证可靠性？
 A: 使用 protobuf 进行消息编解码；基于自研 RPC 框架封装连接、编码与调用控制。可靠性通过超时、错误码与重试策略实现；对 AppendEntries/RequestVote 等核心调用可配置超时与指数退避，避免风暴。
 • 代码落点：`src/raftRpcPro/*.proto`、生成的 `*.pb.cc/h`；`src/rpc/*`（`mprpccontroller.*`、`mprpcchannel.*`、`rpcprovider.*`）。
