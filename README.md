@@ -19,7 +19,6 @@
 .
 ```
 
-文档：见 `docs/ARCHITECTURE.md` 获取架构总览与请求生命周期。
 
 背景:
 
@@ -28,10 +27,12 @@
 传统的集中式数据库在面对大规模数据和高并发访问时可能面临单点故障和性能瓶颈的问题。
 
 为了解决这些问题，本项目致力于构建一种基于Raft一致性算法的分布式键值存储数据库，以确保数据的一致性、可用性和分区容错性。
-# 目的（TL;DR）
+
+# 目的
 
 学习了Raft算法之后手动实现，并基于此搭建了一个k-v存储的分布式数据库。
-# 解决的问题（What you get）
+
+# 解决的问题
 
 一致性： 通过Raft算法确保数据的强一致性，使得系统在正常和异常情况下都能够提供一致的数据视图。
     
@@ -102,11 +103,6 @@ cmake -S . -B build -DKV_BUILD_MINIMAL=ON && cmake --build build -j
 cmake -S . -B build -DKV_BUILD_EXAMPLES=ON && cmake --build build -j
 ```
 
-1.Raft算法的一些概念性内容，比如：Raft算法是什么？Raft算法怎么完成公式？完成Raft算法需要哪几个主要函数？需要哪几个主要的变量维护？
-
-2.Raft算法的主要函数实现思路及代码，主要函数包括：AppendEntries sendRequestVote sendAppendEntries RequestVote 等
-
-3.其他部分组件，包括：RPC通信组件、k-v数据库、中间沟通数据库和raft节点的raftServer
 # 项目难点
 
 难点就是项目主要的几个功能模块的实现。
